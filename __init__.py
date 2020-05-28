@@ -47,21 +47,43 @@ def load_clips(song, track, num_clips=10):
 
 def convert_clips(song, clips, conversions=CONVERSIONS):
     for clip in clips:
-        for conversion in conversions:
+        for i, conversion in enumerate(conversions):
+            track = clip.canonical_parent.canonical_parent
+            song = track.canonical_parent
+            track_index = get_track_index(song, track)
+            LOG.info("track index = %d", track_index)
             Live.Conversions.audio_to_midi_clip(song, clip, conversion)
+            new_track = song.tracks[track_index+1]
+
+
+def get_track_index(song, track):
+    for i, t in enumerate(song.tracks):
+        if t == track:
+            return i
+    return -1
+
+def get_track(song, index):
+    if index >= 0:
+        return song.tracks[index]
+    return None
 
 class AudioToMIDI(ControlSurface):
     def __init__(self, *args, **kwargs):
         super(AudioToMIDI, self).__init__(*args, **kwargs)
         self.c_instance = kwargs.get("c_instance", None)
-        self.run()
+        LOG.info(dir(self.c_instance))
+        LOG.info(dir(self.c_instance.handle))
+        app = Live.Application.get_application()
+        song = app.get_document()
+        song.create_audio_track(-1)
+        app.add_control_surfaces_listener(self.run)
 
     def run(self):
-        song = self.c_instance.song()
-        song.create_audio_track(-1)
+        song = Live.Application.get_application().get_document()
         track = song.tracks[-1]
-        clips = load_clips(song, track)
-        convert_clips(song, clips)
+        clips = load_clips(song, track, 1)
+        convert_clips(song, clips, [Live.Conversions.AudioToMidiType.drums_to_midi])
+
 
 
 def create_instance(c_instance):
