@@ -1,11 +1,13 @@
 import urllib
 import logging
 import Live
-from ableton.v2.control_surface import ControlSurface
+from _Framework.ControlSurface import ControlSurface
+from _Framework.Task import FuncTask
 
 LOG = logging.getLogger("audioToMidi")
 PATH = "/Users/jasonaylward/Music/iTunes/iTunes Music/"  # The path that you want to iterate through
-BROWSER = Live.Application.get_application().browser
+APP = Live.Application.get_application()
+BROWSER = APP.browser
 CONVERSIONS = [Live.Conversions.AudioToMidiType.harmony_to_midi,
                Live.Conversions.AudioToMidiType.melody_to_midi,
                Live.Conversions.AudioToMidiType.drums_to_midi]
@@ -47,25 +49,26 @@ def load_clips(song, track, num_clips=10):
 
 def convert_clips(song, clips, conversions=CONVERSIONS):
     for clip in clips:
-        for conversion in conversions:
+        for i, conversion in enumerate(conversions):
+            track = clip.canonical_parent.canonical_parent
+            song = track.canonical_parent
             Live.Conversions.audio_to_midi_clip(song, clip, conversion)
 
 class AudioToMIDI(ControlSurface):
-    def __init__(self, *args, **kwargs):
-        super(AudioToMIDI, self).__init__(*args, **kwargs)
-        self.c_instance = kwargs.get("c_instance", None)
-        self.run()
+    def __init__(self, c_instance=None, publish_self=True, *args, **kwargs):
+        super(AudioToMIDI, self).__init__(c_instance, publish_self, *args, **kwargs)
+        self.c_instance = c_instance
+        t = FuncTask(func=self.run)
+        self._task_group.add(t)
 
-    def run(self):
-        song = self.c_instance.song()
+
+    def run(self, thing):
+        song = APP.get_document()
         song.create_audio_track(-1)
         track = song.tracks[-1]
-        clips = load_clips(song, track)
-        convert_clips(song, clips)
+        clips = load_clips(song, track, 3)
+        convert_clips(song, clips, CONVERSIONS)
 
 
 def create_instance(c_instance):
     return AudioToMIDI(c_instance=c_instance)
-
-# def create_instance(c_instance):
-#     pass
