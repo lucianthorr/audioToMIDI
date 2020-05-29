@@ -22,8 +22,8 @@
  * Convert MIDI clips to MIDI files.
  * Save off MIDI clips as files.
  * Remove MIDI tracks after the clips have been saved.
- * Figure out why Live crashes if started with audioToMIDI enabled and fix the issue, if possible.
- 
+
+
  #### Resources:
   * https://julienbayle.studio/ableton-live-midi-remote-scripts/
   * https://github.com/styk-tv/4bars
