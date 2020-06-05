@@ -1,12 +1,19 @@
+import os
 import urllib
 import logging
 import Live
 import time
+import to_midi
 from _Framework.ControlSurface import ControlSurface
 from _Framework.Task import FuncTask, TaskGroup
 
 LOG = logging.getLogger("audioToMidi")
-PATH = "/Users/jasonaylward/Music/iTunes/iTunes Music/"  # The path that you want to iterate through
+SOURCE_FOLDER = "/Users/jasonaylward/Music/iTunes/iTunes Music/"  # The path that you want to iterate through
+DEST_FOLDER = "/Users/jasonaylward/Desktop/midis/"
+CONVERSIONS = {"melody": Live.Conversions.AudioToMidiType.melody_to_midi,
+               "harmony": Live.Conversions.AudioToMidiType.melody_to_midi,
+               "drums": Live.Conversions.AudioToMidiType.drums_to_midi}
+AUDIO_EXTS = ["mp3", "wav"]
 APP = Live.Application.get_application()
 BROWSER = APP.browser
 
@@ -16,10 +23,12 @@ class AudioToMIDI(ControlSurface):
         self.c_instance = c_instance
         self.song = APP.get_document()
         self.song.create_audio_track(-1)
+        self.song.tempo=120.0
         self.audio_track = self.song.tracks[-1]
         self.audio_track_idx = len(self.song.tracks) - 1
-        self.items = get_items_from_path(PATH, max_files=11)
+        self.items = get_items_from_path(SOURCE_FOLDER, max_files=11)
         self.item_idx = 0
+        self.conversion = "melody"
         t = FuncTask(func=self.load_clip)
         self._task_group.add(t)
 
@@ -44,32 +53,40 @@ class AudioToMIDI(ControlSurface):
         slots = self.audio_track.clip_slots
         clip = slots[0].clip
         clip.warping = False
-        Live.Conversions.audio_to_midi_clip(self.song, clip, Live.Conversions.AudioToMidiType.drums_to_midi)
+        Live.Conversions.audio_to_midi_clip(self.song, clip, CONVERSIONS[self.conversion])
 
     def new_track_created(self):
-        LOG.info("created!")
         new_track = self.song.view.selected_track
         if get_track_index(self.song, new_track) > self.audio_track_idx:
             selected_scene = self.song.view.selected_scene
-            clip = get_clip(self.song, new_track, selected_scene)
+            self.midi_clip = get_clip(self.song, new_track, selected_scene)
             t = FuncTask(func=self.save_conversion)
             self._task_group.clear()
             self._task_group.add(t)
 
-    def save_conversion(self, clip):
+    def save_conversion(self, _):
         orig_clip = get_clip(self.song, self.audio_track, self.song.view.selected_scene)
-        LOG.info("pretend to save %s", orig_clip.file_path)
+        orig_path = orig_clip.file_path
+        dest = DEST_FOLDER+orig_path[len(SOURCE_FOLDER):]
+        dest = dest.replace("..", "")
+        path, raw_filename = dest.rsplit("/", 1)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        filename = raw_filename.rsplit(".")[0] if "." in raw_filename else raw_filename
+        filename += "." + self.conversion
+        notes = Live.Clip.Clip.get_notes(self.midi_clip, self.midi_clip.start_time, 0, self.midi_clip.end_time ,96)
+        to_midi.save(path+"/"+filename, self.song.tempo, notes)
         t = FuncTask(func=self.delete_track)
         self._task_group.clear()
         self._task_group.add(t)
-
 
     def delete_track(self, _):
         self._task_group.clear()
         self.song.delete_track(len(self.song.tracks)-1)
 
+
 def get_items_from_path(path, max_files=10):
-    path_uri = "userfolder:" + urllib.quote(PATH)
+    path_uri = "userfolder:" + urllib.quote(SOURCE_FOLDER)
     for item in BROWSER.user_folders:
         if item.uri == path_uri:
             return get_items(item, max_files)
@@ -102,3 +119,6 @@ def get_track_index(song, track):
 
 def create_instance(c_instance):
     return AudioToMIDI(c_instance=c_instance)
+
+# def create_instance(x):
+#     pass
