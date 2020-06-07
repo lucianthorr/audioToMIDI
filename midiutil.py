@@ -909,10 +909,10 @@ class MIDITrack(object):
                         stack[noteeventkey] = [event.tick]
                     tempEventList.append(event)
                 elif event.evtname == 'NoteOff':
-                    if len(stack[noteeventkey]) > 1:
+                    if len(stack.get(noteeventkey, [])) > 1:
                         event.tick = stack[noteeventkey].pop()
                         tempEventList.append(event)
-                    else:
+                    elif len(stack.get(noteeventkey, [])) > 0:
                         stack[noteeventkey].pop()
                         tempEventList.append(event)
             else:

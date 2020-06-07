@@ -5,6 +5,7 @@ LOG = logging.getLogger("audioToMidi")
 def save(path, tempo, notes):
     new_midi = MIDIFile(1)
     new_midi.addTempo(0, 0, tempo)
+    sorted(notes, key=lambda note: note[1])
     for note in notes:
         assert len(note) == 5
         pitch = note[0]
